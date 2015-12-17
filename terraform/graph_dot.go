@@ -52,6 +52,59 @@ func GraphDot(g *Graph, opts *GraphDotOpts) (string, error) {
 	return dg.String(), nil
 }
 
+// GraphDot returns the dot formatting of a visual representation of
+// the given Terraform graph.
+func GraphDotPlan(g *Graph, p *Plan, opts *GraphDotOpts) (string, error) {
+	dg := dot.NewGraph(map[string]string{
+		"compound": "true",
+		"newrank":  "true",
+	})
+	dg.Directed = true
+	err := graphDotSubgraph(dg, "root", g, opts, 0)
+	if err != nil {
+		return "", err
+	}
+	rdg, err := dg.GetSubgraph("root")
+	if err != nil {
+		return "", err
+	}
+	// root_module := p.Diff.RootModule()
+	for _, module := range p.Diff.Modules {
+		for key,idiff := range module.Resources {
+			suffix := ""
+			color := "black"
+			switch idiff.ChangeType() {
+				case DiffNone:
+					color = "black"
+				case DiffDestroyCreate:
+					destroy_node_name := fmt.Sprintf("%s %s%s", module.Path, key, " (destroy)")
+					destroy_node, err := rdg.GetNode(destroy_node_name)
+					if err != nil {
+						return "", err
+					}
+					destroy_node.Attrs["color"] = "red"
+					destroy_node.Attrs["penwidth"] = "5.0"
+					color = "green"
+				case DiffDestroy:
+					color = "red"
+					suffix = " (destroy)"
+				case DiffCreate:
+					color = "green"
+				case DiffUpdate:
+					color = "yellow"
+			}
+			node_name := fmt.Sprintf("%s %s%s", module.Path, key, suffix)
+			node, err := rdg.GetNode(node_name)
+			if err != nil {
+				return "", err
+			}
+			node.Attrs["color"] = color
+			node.Attrs["penwidth"] = "5.0"
+		}
+	}
+	return dg.String(), nil
+}
+
 func graphDotSubgraph(
 	dg *dot.Graph, modName string, g *Graph, opts *GraphDotOpts, modDepth int) error {
 	// Respect user-specified module depth
@@ -160,6 +213,10 @@ func graphDotSubgraph(
 	}
 
 	return nil
+}
+
+func graphDotNodeNameFromDiffModule(modName, v ModuleDiff) string {
+	return fmt.Sprintf("[%s] %s", modName, "foo")
 }
 
 func graphDotNodeName(modName, v dag.Vertex) string {

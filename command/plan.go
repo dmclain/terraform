@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"io/ioutil"
 
 	"github.com/hashicorp/terraform/terraform"
 )
@@ -101,6 +102,47 @@ func (c *PlanCommand) Run(args []string) int {
 		c.Ui.Error(fmt.Sprintf("Error running plan: %s", err))
 		return 1
 	}
+
+	if plan.Diff.Empty() {
+		c.Ui.Output(
+			"No changes. Infrastructure is up-to-date. This means that Terraform\n" +
+				"could not detect any differences between your configuration and\n" +
+				"the real physical resources that exist. As a result, Terraform\n" +
+				"doesn't need to do anything.")
+		return 0
+	}
+
+	// DMCLAIN ==========================================================================
+	g, err := ctx.Graph(&terraform.ContextGraphOpts{
+		Verbose:  true,
+		Validate: false,
+	})
+	if err != nil {
+		c.Ui.Error(fmt.Sprintf("Error creating graph: %s", err))
+		return 1
+	}
+
+	graphStr, err := terraform.GraphDotPlan(g, plan, &terraform.GraphDotOpts{
+		DrawCycles: true,
+		MaxDepth:   2,
+		Verbose:    true,
+	})
+	if err != nil {
+		c.Ui.Error(fmt.Sprintf("Error converting graph: %s", err))
+		return 1
+	}
+	c.Ui.Output(graphStr)
+	graphPath := "plan.dot"
+	f, err := os.Create(graphPath)
+	if err == nil {
+		defer f.Close()
+		ioutil.WriteFile(graphPath, []byte(graphStr), 0644)
+	}
+	if err != nil {
+		c.Ui.Error(fmt.Sprintf("Error writing plan file: %s", err))
+		return 1
+	}
+	// =================================================================================
 
 	if outPath != "" {
 		log.Printf("[INFO] Writing plan output to: %s", outPath)

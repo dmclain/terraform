@@ -104,7 +104,7 @@ Options:
   -verbose             Generate a verbose, "worst-case" graph, with all nodes
                        for potential operations in place.
 
-  -no-color           If specified, output won't contain any color.
+  -no-color            If specified, output won't contain any color.
 
 `
 	return strings.TrimSpace(helpText)

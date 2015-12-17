@@ -21,6 +21,7 @@ type Graph struct {
 	Subgraphs []*Subgraph
 
 	nodesByName map[string]*Node
+	supgraphsByName map[string]*Subgraph
 }
 
 // Subgraph is a Graph that lives inside a Parent graph, and contains some
@@ -54,8 +55,9 @@ type Node struct {
 // Creates a properly initialized DOT Graph.
 func NewGraph(attrs map[string]string) *Graph {
 	return &Graph{
-		Attrs:       attrs,
-		nodesByName: make(map[string]*Node),
+		Attrs:           attrs,
+		nodesByName:     make(map[string]*Node),
+		supgraphsByName: make(map[string]*Subgraph),
 	}
 }
 
@@ -83,6 +85,7 @@ func (g *Graph) AddSubgraph(name string) *Subgraph {
 		Name:   name,
 	}
 	g.Subgraphs = append(g.Subgraphs, subgraph)
+	g.supgraphsByName[name] = subgraph
 	return subgraph
 }
 
@@ -93,6 +96,7 @@ func (g *Graph) AddAttr(k, v string) {
 func (g *Graph) AddNode(n *Node) {
 	g.Nodes = append(g.Nodes, n)
 	g.nodesByName[n.Name] = n
+	//fmt.Println(g.nodesByName)
 }
 
 func (g *Graph) AddEdge(e *Edge) {
@@ -112,11 +116,21 @@ func (g *Graph) AddEdgeBetween(src, dst string, attrs map[string]string) error {
 
 // Look up a node by name
 func (g *Graph) GetNode(name string) (*Node, error) {
+	fmt.Println(g.nodesByName)
 	node, ok := g.nodesByName[name]
 	if !ok {
 		return nil, fmt.Errorf("Could not find node: %s", name)
 	}
 	return node, nil
+}
+
+func (g *Graph) GetSubgraph(name string) (*Subgraph, error) {
+	fmt.Println(g.supgraphsByName)
+	graph, ok := g.supgraphsByName[name]
+	if !ok {
+		return nil, fmt.Errorf("Could not find subgraph: %s", name)
+	}
+	return graph, nil
 }
 
 // Returns the DOT representation of this Graph.
