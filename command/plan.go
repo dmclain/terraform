@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"io/ioutil"
 
 	"github.com/hashicorp/terraform/terraform"
 )
@@ -110,6 +111,38 @@ func (c *PlanCommand) Run(args []string) int {
 				"doesn't need to do anything.")
 		return 0
 	}
+
+	// DMCLAIN ==========================================================================
+	g, err := ctx.Graph(&terraform.ContextGraphOpts{
+		Verbose:  true,
+		Validate: false,
+	})
+	if err != nil {
+		c.Ui.Error(fmt.Sprintf("Error creating graph: %s", err))
+		return 1
+	}
+
+	graphStr, err := terraform.GraphDotPlan(g, plan, &terraform.GraphDotOpts{
+		DrawCycles: true,
+		MaxDepth:   2,
+		Verbose:    true,
+	})
+	if err != nil {
+		c.Ui.Error(fmt.Sprintf("Error converting graph: %s", err))
+		return 1
+	}
+	c.Ui.Output(graphStr)
+	graphPath := "plan.dot"
+	f, err := os.Create(graphPath)
+	if err == nil {
+		defer f.Close()
+		ioutil.WriteFile(graphPath, []byte(graphStr), 0644)
+	}
+	if err != nil {
+		c.Ui.Error(fmt.Sprintf("Error writing plan file: %s", err))
+		return 1
+	}
+	// =================================================================================
 
 	if outPath != "" {
 		log.Printf("[INFO] Writing plan output to: %s", outPath)
