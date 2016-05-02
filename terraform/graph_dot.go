@@ -37,7 +37,7 @@ type GraphDotOpts struct {
 
 // GraphDot returns the dot formatting of a visual representation of
 // the given Terraform graph.
-func GraphDot(g *Graph, opts *GraphDotOpts) (string, error) {
+func GraphDot(g *Graph, opts *GraphDotOpts) (*dot.Graph, error) {
 	dg := dot.NewGraph(map[string]string{
 		"compound": "true",
 		"newrank":  "true",
@@ -46,10 +46,10 @@ func GraphDot(g *Graph, opts *GraphDotOpts) (string, error) {
 
 	err := graphDotSubgraph(dg, "root", g, opts, 0)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return dg.String(), nil
+	return dg, nil
 }
 
 // GraphDot returns the dot formatting of a visual representation of
@@ -87,7 +87,11 @@ func GraphDotPlan(g *Graph, p *Plan, opts *GraphDotOpts) (string, error) {
 					color = "green"
 				case DiffDestroy:
 					color = "red"
-					suffix = " (destroy)"
+					if idiff.DestroyTainted {
+						suffix = " (destroy tainted)"
+					} else {
+						suffix = " (destroy)"
+					}
 				case DiffCreate:
 					color = "green"
 				case DiffUpdate:

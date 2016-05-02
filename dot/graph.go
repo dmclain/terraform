@@ -116,7 +116,6 @@ func (g *Graph) AddEdgeBetween(src, dst string, attrs map[string]string) error {
 
 // Look up a node by name
 func (g *Graph) GetNode(name string) (*Node, error) {
-	fmt.Println(g.nodesByName)
 	node, ok := g.nodesByName[name]
 	if !ok {
 		return nil, fmt.Errorf("Could not find node: %s", name)
@@ -125,7 +124,6 @@ func (g *Graph) GetNode(name string) (*Node, error) {
 }
 
 func (g *Graph) GetSubgraph(name string) (*Subgraph, error) {
-	fmt.Println(g.supgraphsByName)
 	graph, ok := g.supgraphsByName[name]
 	if !ok {
 		return nil, fmt.Errorf("Could not find subgraph: %s", name)
