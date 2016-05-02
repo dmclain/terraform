@@ -47,7 +47,7 @@ func (c *GraphCommand) Run(args []string) int {
 		}
 	}
 
-	ctx, _, err := c.Context(contextOpts{
+	ctx, planned, err := c.Context(contextOpts{
 		Path:      path,
 		StatePath: "",
 	})
@@ -67,7 +67,7 @@ func (c *GraphCommand) Run(args []string) int {
 		return 1
 	}
 
-	graphStr, err := terraform.GraphDot(g, &terraform.GraphDotOpts{
+	graph, err := terraform.GraphDot(g, &terraform.GraphDotOpts{
 		DrawCycles: drawCycles,
 		MaxDepth:   moduleDepth,
 		Verbose:    verbose,
@@ -77,7 +77,55 @@ func (c *GraphCommand) Run(args []string) int {
 		return 1
 	}
 
-	c.Ui.Output(graphStr)
+	if planned {
+		plan, err := ctx.Plan()
+		rdg, err := graph.GetSubgraph("root")
+		if err != nil {
+			c.Ui.Error(fmt.Sprintf("Error getting subgraph: %s", err))
+			return 1
+		}
+		for _, module := range plan.Diff.Modules {
+			for key,idiff := range module.Resources {
+				suffix := ""
+				color := "black"
+				switch idiff.ChangeType() {
+					case terraform.DiffNone:
+						color = "black"
+					case terraform.DiffDestroyCreate:
+						destroy_node_name := fmt.Sprintf("%s %s%s", module.Path, key, " (destroy)")
+						destroy_node, err := rdg.GetNode(destroy_node_name)
+						if err != nil {
+							c.Ui.Error(fmt.Sprintf("Error: %s", err))
+							return 1
+						}
+						destroy_node.Attrs["color"] = "red"
+						destroy_node.Attrs["penwidth"] = "5.0"
+						color = "green"
+					case terraform.DiffDestroy:
+						color = "red"
+						if idiff.DestroyTainted {
+							suffix = " (destroy tainted)"
+						} else {
+							suffix = " (destroy)"
+						}
+					case terraform.DiffCreate:
+						color = "green"
+					case terraform.DiffUpdate:
+						color = "yellow"
+				}
+				node_name := fmt.Sprintf("%s %s%s", module.Path, key, suffix)
+				node, err := rdg.GetNode(node_name)
+				if err != nil {
+					c.Ui.Error(fmt.Sprintf("Error: %s", err))
+					return 1
+				}
+				node.Attrs["color"] = color
+				node.Attrs["penwidth"] = "5.0"
+			}
+		}
+	}
+
+	c.Ui.Output(graph.String())
 
 	return 0
 }
